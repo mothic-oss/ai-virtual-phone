@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react
 import { getAllPosts, deleteMomentPost, getUnreadMomentsNotifications, saveMomentsLastSeen, addMomentComment } from "@/lib/moments-storage";
 import { loadChatContacts } from "@/lib/chat-storage";
 import { resolveUserIdentity } from "@/lib/settings-storage";
+import { loadCharacters } from "@/lib/character-storage";
 import { saveChatImageToIndexedDB, getChatImageFromIndexedDB } from "@/lib/chat-asset-storage";
 import type { MomentComment, MomentPost } from "@/lib/moments-types";
 import { MomentPostCard } from "./moment-post-card";
@@ -51,21 +52,22 @@ export function MomentsFeed({ onCloseApp }: MomentsFeedProps) {
     const coverInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const userIdentity = resolveUserIdentity(undefined, "chat");
-    const [signature, setSignature] = useState(() => {
-        if (typeof window !== "undefined") {
-            return kvGet("moments_signature") || "make every day count (●ˇ∀ˇ●)";
-        }
-        return "make every day count (●ˇ∀ˇ●)";
-    });
-    const [editingSignature, setEditingSignature] = useState(false);
-    const sigInputRef = useRef<HTMLInputElement>(null);
-    const handleSignatureSubmit = (val: string) => {
-        const trimmed = val.trim() || "make every day count (●ˇ∀ˇ●)";
-        setSignature(trimmed);
-        kvSet("moments_signature", trimmed);
-        setEditingSignature(false);
-    };
-
+    const characters = loadCharacters();
+    const statusItems = Array.from(
+        new Map(
+            posts
+                .filter(post => post.authorType === "character")
+                .map(post => {
+                    const character = characters.find(item => item.id === post.authorId);
+                    return [post.authorId, {
+                        id: post.authorId,
+                        postId: post.id,
+                        name: character?.name || "角色",
+                        avatar: character?.avatar || "",
+                    }] as const;
+                }),
+        ).values(),
+    ).slice(0, 8);
     const [unreadNotifs, setUnreadNotifs] = useState<ReturnType<typeof getUnreadMomentsNotifications>>([]);
     const [showNotifModal, setShowNotifModal] = useState(false);
     const [headerScrolled, setHeaderScrolled] = useState(false);
@@ -458,76 +460,61 @@ export function MomentsFeed({ onCloseApp }: MomentsFeedProps) {
                 </div>
             ) : undefined}
         >
-                {/* Cover card + avatar wrapper */}
-                <div className="feed-cover-shell w-full relative mb-4">
-                    
-                    {/* Background Absolute Cover */}
-                    <div
-                        onClick={() => coverInputRef.current?.click()}
-                        className="feed-cover-bg absolute inset-0 w-full h-full bg-[var(--c-input)] cursor-pointer z-0"
-                        style={{ 
-                            maskImage: "linear-gradient(to bottom, black 40%, transparent 100%)",
-                            WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 100%)"
-                        }}
-                    >
-                        {coverUrl && (
-                            <img
-                                src={coverUrl}
-                                alt=""
-                                className="feed-cover-image w-full h-full object-cover"
-                            />
-                        )}
-                    </div>
-                    <input
-                        ref={coverInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleCoverUpload}
-                        className="hidden"
-                    />
-
-                    {/* Content Container (Layered above absolute bg) */}
-                    <div
-                        className="feed-profile relative w-full px-5 pb-5 pointer-events-none"
-                        style={{ paddingTop: "calc(var(--page-header-safe-top, 48px) + var(--page-header-content-height, 54px) + 160px)" }}
-                    >
-                        {/* Avatar */}
-                        <div className="feed-profile-avatar w-[72px] h-[72px] rounded-full border-[3px] border-[var(--c-page-body-bg)] bg-[var(--c-input)] overflow-hidden flex items-center justify-center translate-x-[2px] pointer-events-auto">
-                            {userIdentity?.avatarUrl ? (
-                                <img src={userIdentity.avatarUrl} alt="" className="feed-profile-avatar-image w-full h-full object-cover" />
-                            ) : (
-                                <span className="feed-profile-avatar-fallback ts-24 text-[var(--c-icon)] font-bold">{(userIdentity?.name ?? "我")[0]}</span>
-                            )}
+                {/* WhatsApp-style Updates overview */}
+                <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverUpload}
+                    className="hidden"
+                />
+                <section className="updates-status-section" aria-label="状态">
+                    <div className="updates-section-heading">
+                        <div>
+                            <h2>状态</h2>
+                            <p>看看大家最近发生了什么</p>
                         </div>
-                        
-                        {/* Name and Flex Data */}
-                        <div className="feed-profile-info flex flex-col gap-1 mt-3 ml-[6px] pointer-events-auto">
-                            <span className="feed-profile-name ts-20 font-bold text-[var(--c-text-title)]">{userIdentity?.name ?? "我"}</span>
-                            <div className="feed-profile-stats flex gap-4 ts-13 text-[var(--c-icon)] font-medium mt-[2px]">
-                                <span className="feed-profile-stat"><strong className="feed-profile-stat-value text-[var(--c-text-title)]">128</strong> 关注</span>
-                                <span className="feed-profile-stat"><strong className="feed-profile-stat-value text-[var(--c-text-title)]">12.4K</strong> 粉丝</span>
-                                <span className="feed-profile-stat"><strong className="feed-profile-stat-value text-[var(--c-text-title)]">8.2M</strong> 获赞与收藏</span>
-                            </div>
-                            
-                            {/* Signature */}
-                            <div className="feed-profile-signature mt-[2px] text-left text-[var(--c-text)]">
-                                {editingSignature ? (
-                                    <input
-                                        ref={sigInputRef}
-                                        defaultValue={signature}
-                                        autoFocus
-                                        className="feed-profile-signature-input bg-transparent outline-none ts-14 text-[var(--c-text)] w-full border-b border-[var(--c-action-blue)] pb-1"
-                                        onBlur={(e) => handleSignatureSubmit(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === "Enter") handleSignatureSubmit((e.target as HTMLInputElement).value); }}
-                                    />
+                        <button type="button" onClick={() => coverInputRef.current?.click()}>
+                            更换封面
+                        </button>
+                    </div>
+                    <div className="updates-status-rail">
+                        <button type="button" className="updates-status-item updates-status-self" onClick={() => setShowCompose(true)}>
+                            <span className="updates-status-avatar">
+                                {coverUrl || userIdentity?.avatarUrl ? (
+                                    <img src={coverUrl || userIdentity?.avatarUrl || ""} alt="" />
                                 ) : (
-                                    <span className="feed-profile-signature-text cursor-pointer ts-14 opacity-90 leading-[1.6]" onClick={() => setEditingSignature(true)}>
-                                        {signature || "编写你的个性签名..."}
-                                    </span>
+                                    <span className="updates-status-fallback">{(userIdentity?.name || "我")[0]}</span>
                                 )}
-                            </div>
-                        </div>
+                                <span className="updates-status-plus">+</span>
+                            </span>
+                            <span className="updates-status-name">我的状态</span>
+                        </button>
+                        {statusItems.map(item => (
+                            <button
+                                type="button"
+                                className="updates-status-item"
+                                key={item.id}
+                                onClick={() => {
+                                    const target = getScrollElement()?.querySelector<HTMLElement>(`[data-moment-post-id="${item.postId}"]`);
+                                    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                }}
+                            >
+                                <span className="updates-status-avatar updates-status-avatar-active">
+                                    {item.avatar ? <img src={item.avatar} alt="" /> : <span className="updates-status-fallback">{item.name[0]}</span>}
+                                </span>
+                                <span className="updates-status-name">{item.name}</span>
+                            </button>
+                        ))}
                     </div>
+                </section>
+
+                <div className="updates-channel-heading">
+                    <div>
+                        <h2>最新动态</h2>
+                        <p>朋友、学校和世界里的新鲜事</p>
+                    </div>
+                    <span>{posts.length}</span>
                 </div>
 
                 {/* Unread notifications banner */}
