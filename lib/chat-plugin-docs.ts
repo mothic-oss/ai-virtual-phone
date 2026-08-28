@@ -118,6 +118,8 @@ opts.timeoutMs 覆盖该 transform 的超时（默认 8000ms）。在 transform 
 - \`ctx.data.sessions.list()\` / \`.get(id)\` → 会话（含 isGroup、contactId 等）
 - \`ctx.data.contacts.list()\` → 聊天联系人
 - \`ctx.data.characters.list()\` / \`.get(id)\` → 角色卡
+- \`await ctx.data.memory.recall({ characterId, query?, excludeSessionId?, shortTermLimit? })\` → 读取现有记忆系统筛选后的 \`{ core, longTerm, shortTerm }\` 文本数组；会遵守记忆来源开关与 token 预算。适合裸 \`ctx.ai.chat\` 调用前补充角色记忆；传当前会话 id 可避免近期聊天重复
+- \`await ctx.data.memory.recordActivity({ characterIds, eventCount? })\` → 插件把聊天消息写入后，通知现有记忆流水线累计事件并按用户设置检查自动总结。消息正文直接从聊天记录读取，不会重复存一份
 - \`ctx.data.variables\` —— **跨插件共享**的变量池（好感度、心情这类世界状态）：
   - \`.get(name, scope?, targetId?)\` / \`.set(name, value, scope?, targetId?)\` / \`.update(name, patchObj, ...)\` / \`.unset(name, ...)\`
   - scope: "global"（默认）| "session"（传 sessionId）| "character"（传 characterId）
