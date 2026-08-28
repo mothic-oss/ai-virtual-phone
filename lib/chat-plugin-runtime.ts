@@ -15,6 +15,10 @@ import { isMediaStoreRef, loadMediaBlob } from "./media-cache-storage";
 import { loadCharacters } from "./character-storage";
 import { loadApiConfigs, loadBindingConfig } from "./settings-storage";
 import { simpleLLMCall } from "./api-helpers";
+import { incrementEventCounter, loadMemoryConfig } from "./memory-storage";
+import { retrieveCoreMemoriesForPrompt, retrieveMemoriesForPrompt } from "./memory-service";
+import { maybeRunSummarization } from "./memory-summarizer";
+import { filterTimelineByAllowedSources, loadNativeTimeline } from "./short-term-assembler";
 import { getChatPluginHookBus } from "./chat-plugin-hooks";
 import { loadChatPluginModule } from "./chat-plugin-loader";
 import {
@@ -355,6 +359,39 @@ class ChatPluginRuntime {
                 characters: {
                     list: () => loadCharacters(),
                     get: (id) => loadCharacters().find(c => c.id === id) ?? null,
+                },
+                memory: {
+                    recall: async ({ characterId, query = "", excludeSessionId, shortTermLimit = 20 }) => {
+                        const config = loadMemoryConfig();
+                        const [coreEntries, longTermEntries] = await Promise.all([
+                            retrieveCoreMemoriesForPrompt(characterId, config),
+                            retrieveMemoriesForPrompt(characterId, query.trim() || "近期关系与重要事件", config),
+                        ]);
+                        const limit = Math.max(0, Math.min(50, Math.floor(shortTermLimit)));
+                        const timeline = filterTimelineByAllowedSources(
+                            loadNativeTimeline(characterId),
+                            config.shortTermAllowedSources,
+                        ).filter(entry => !excludeSessionId
+                            || (entry.sessionId !== excludeSessionId && entry.groupSessionId !== excludeSessionId));
+
+                        return {
+                            core: coreEntries.map(entry => entry.content),
+                            longTerm: longTermEntries.map(entry => entry.content),
+                            shortTerm: limit > 0 ? timeline.slice(-limit).map(entry => entry.content) : [],
+                        };
+                    },
+                    recordActivity: async ({ characterIds, eventCount = 1 }) => {
+                        const count = Math.max(0, Math.min(20, Math.floor(eventCount)));
+                        if (count <= 0) return;
+                        const characters = loadCharacters();
+                        const uniqueIds = [...new Set(characterIds.map(id => id.trim()).filter(Boolean))];
+                        await Promise.all(uniqueIds.map(async characterId => {
+                            const character = characters.find(item => item.id === characterId);
+                            if (!character) return;
+                            for (let i = 0; i < count; i++) incrementEventCounter(characterId);
+                            await maybeRunSummarization(characterId, character.name);
+                        }));
+                    },
                 },
                 variables: {
                     get: (name, scope = "global", targetId) => getChatPluginVar(name, scope, targetId),
