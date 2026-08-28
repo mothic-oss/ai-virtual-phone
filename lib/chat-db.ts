@@ -31,6 +31,111 @@ const LS_SESSIONS_KEY = "ai_phone_chat_sessions_v1";
 const LS_CONTACTS_KEY = "ai_phone_chat_contacts_v1";
 const LS_MIGRATED_FLAG = "ai_phone_idb_migrated_v1";
 
+function normalizeGroupName(value: string | undefined): string {
+    return (value || "")
+        .normalize("NFKC")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLocaleLowerCase();
+}
+
+/**
+ * A restored backup can contain several snapshots of the same group with
+ * different session ids.  A group name alone is too weak (two unrelated
+ * groups may share it), so legacy groups are matched by normalized name and
+ * the unordered member set.
+ */
+export function getGroupSessionIdentity(session: ChatSession): string | null {
+    if (!session.isGroup) return null;
+    const name = normalizeGroupName(session.groupName);
+    const participants = Array.from(new Set(
+        (session.participantIds || []).map((id) => id.trim()).filter(Boolean),
+    )).sort();
+    if (!name || participants.length === 0) return null;
+    return `${name}\u0000${participants.join("\u0000")}`;
+}
+
+function sessionUpdatedAtValue(session: ChatSession): number {
+    const value = Date.parse(session.updatedAt || "");
+    return Number.isFinite(value) ? value : 0;
+}
+
+export function coalesceDuplicateGroupSessions(
+    messages: ChatMessage[],
+    sessions: ChatSession[],
+): { messages: ChatMessage[]; sessions: ChatSession[]; remappedSessionIds: Map<string, string> } {
+    const byIdentity = new Map<string, ChatSession[]>();
+    for (const session of sessions) {
+        const identity = getGroupSessionIdentity(session);
+        if (!identity) continue;
+        const group = byIdentity.get(identity) || [];
+        group.push(session);
+        byIdentity.set(identity, group);
+    }
+
+    const remappedSessionIds = new Map<string, string>();
+    const replacements = new Map<string, ChatSession>();
+    for (const group of byIdentity.values()) {
+        if (group.length < 2) continue;
+        const ordered = [...group].sort((left, right) => {
+            const timeDiff = sessionUpdatedAtValue(left) - sessionUpdatedAtValue(right);
+            return timeDiff || left.id.localeCompare(right.id);
+        });
+        const canonical = ordered[ordered.length - 1];
+        const merged = Object.assign({}, ...ordered, {
+            id: canonical.id,
+            unreadCount: Math.max(...ordered.map((item) => Number(item.unreadCount) || 0)),
+            isPinned: ordered.some((item) => item.isPinned),
+        }) as ChatSession;
+        replacements.set(canonical.id, merged);
+        for (const session of ordered) {
+            if (session.id !== canonical.id) remappedSessionIds.set(session.id, canonical.id);
+        }
+    }
+
+    if (remappedSessionIds.size === 0) return { messages, sessions, remappedSessionIds };
+
+    return {
+        messages: messages.map((message) => {
+            const canonicalId = remappedSessionIds.get(message.sessionId);
+            return canonicalId ? { ...message, sessionId: canonicalId } : message;
+        }),
+        sessions: sessions.flatMap((session) => {
+            if (remappedSessionIds.has(session.id)) return [];
+            return [replacements.get(session.id) || session];
+        }),
+        remappedSessionIds,
+    };
+}
+
+async function finalizeLoadedChatData(
+    messages: ChatMessage[],
+    sessions: ChatSession[],
+    contacts: ChatContact[],
+): Promise<{ messages: ChatMessage[]; sessions: ChatSession[]; contacts: ChatContact[] }> {
+    const normalized = coalesceDuplicateGroupSessions(messages, sessions);
+    if (normalized.remappedSessionIds.size === 0) return { messages, sessions, contacts };
+
+    try {
+        const originalSessionByMessageId = new Map(messages.map((message) => [message.id, message.sessionId]));
+        const movedMessages = normalized.messages.filter((message) =>
+            normalized.remappedSessionIds.has(originalSessionByMessageId.get(message.id) || ""));
+        const canonicalIds = new Set(normalized.remappedSessionIds.values());
+        const canonicalSessions = normalized.sessions.filter((session) => canonicalIds.has(session.id));
+        await chatDb.transaction("rw", chatDb.messages, chatDb.sessions, async () => {
+            if (movedMessages.length > 0) await chatDb.messages.bulkPut(movedMessages);
+            await chatDb.sessions.bulkDelete(Array.from(normalized.remappedSessionIds.keys()));
+            if (canonicalSessions.length > 0) await chatDb.sessions.bulkPut(canonicalSessions);
+        });
+        console.log(`[ChatDB] Merged ${normalized.remappedSessionIds.size} duplicate group session snapshot(s)`);
+    } catch (error) {
+        // Keep the cleaned in-memory view even if persistence is temporarily
+        // blocked; the next normal session save will retry writing it.
+        console.warn("[ChatDB] Failed to persist duplicate group cleanup:", error);
+    }
+    return { messages: normalized.messages, sessions: normalized.sessions, contacts };
+}
+
 /**
  * Initialize IndexedDB and migrate data from localStorage if needed.
  * Returns the loaded data for the in-memory caches.
@@ -67,7 +172,7 @@ export async function initChatDb(): Promise<{
                     chatDb.contacts.toArray(),
                 ]);
                 console.log(`[ChatDB] Migration flag missing but IndexedDB has data; reusing it: ${messages.length} messages, ${sessions.length} sessions, ${contacts.length} contacts`);
-                return { messages, sessions, contacts };
+                return finalizeLoadedChatData(messages, sessions, contacts);
             }
         } catch (err) {
             console.warn("[ChatDB] Pre-migration IndexedDB check failed:", err);
@@ -101,14 +206,14 @@ export async function initChatDb(): Promise<{
 
             console.log(`[ChatDB] Migrated from localStorage: ${lsMessages.length} messages, ${lsSessions.length} sessions, ${lsContacts.length} contacts`);
 
-            return { messages: lsMessages, sessions: lsSessions, contacts: lsContacts };
+            return finalizeLoadedChatData(lsMessages, lsSessions, lsContacts);
         } catch (err) {
             console.error("[ChatDB] Migration failed, falling back to localStorage:", err);
             // If migration fails, load from localStorage as fallback
             const fallbackMessages: ChatMessage[] = safeParse(window.localStorage.getItem(LS_MESSAGES_KEY));
             const fallbackSessions: ChatSession[] = safeParse(window.localStorage.getItem(LS_SESSIONS_KEY));
             const fallbackContacts: ChatContact[] = safeParse(window.localStorage.getItem(LS_CONTACTS_KEY));
-            return { messages: fallbackMessages, sessions: fallbackSessions, contacts: fallbackContacts };
+            return finalizeLoadedChatData(fallbackMessages, fallbackSessions, fallbackContacts);
         }
     }
 
@@ -122,7 +227,7 @@ export async function initChatDb(): Promise<{
                 chatDb.contacts.toArray(),
             ]);
             console.log(`[ChatDB] Loaded from IndexedDB: ${messages.length} messages, ${sessions.length} sessions, ${contacts.length} contacts`);
-            return { messages, sessions, contacts };
+            return finalizeLoadedChatData(messages, sessions, contacts);
         } catch (err) {
             lastErr = err;
             console.warn(`[ChatDB] Load attempt ${attempt + 1}/3 failed:`, err);
