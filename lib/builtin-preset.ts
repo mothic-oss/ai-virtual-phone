@@ -646,7 +646,7 @@ export function createBuiltinPreset(): PresetConfig {
             },
             {
                 identifier: "moments_post",
-                name: "▸ 朋友圈发帖",
+                name: "▸ 动态发布",
                 role: "system",
                 content: [
                     "<moments_post_instruction>",
@@ -695,7 +695,7 @@ export function createBuiltinPreset(): PresetConfig {
             },
             {
                 identifier: "moments_comment",
-                name: "▸ 朋友圈评论",
+                name: "▸ 动态评论",
                 role: "system",
                 content: [
                     "<moments_comment_instruction>",
@@ -733,7 +733,7 @@ export function createBuiltinPreset(): PresetConfig {
             },
             {
                 identifier: "moments_npc_reaction",
-                name: "▸ 朋友圈NPC互动",
+                name: "▸ 动态NPC互动",
                 role: "system",
                 content: [
                     "<moments_npc_reaction_instruction>",
@@ -809,7 +809,7 @@ export function createBuiltinPreset(): PresetConfig {
             },
             {
                 identifier: "moments_reply",
-                name: "▸ 朋友圈回复",
+                name: "▸ 动态回复",
                 role: "system",
                 content: [
                     "<moments_reply_instruction>",
@@ -848,7 +848,7 @@ export function createBuiltinPreset(): PresetConfig {
             },
             {
                 identifier: "moments_npc_reply",
-                name: "▸ 朋友圈NPC回复",
+                name: "▸ 动态NPC回复",
                 role: "system",
                 content: [
                     "<moments_npc_reply_instruction>",
@@ -925,7 +925,7 @@ export function createBuiltinPreset(): PresetConfig {
             },
             {
                 identifier: "moments_optional_actions",
-                name: "▸ 朋友圈可选动作",
+                name: "▸ 动态可选动作",
                 role: "system",
                 content: [
                     '<optional_actions>',

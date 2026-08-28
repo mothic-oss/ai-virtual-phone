@@ -1436,7 +1436,7 @@ export function ChatSettingsPanel({
             {showConfirmDelete && (
                 <ConfirmDialog
                     title="确定要删除该好友吗？"
-                    message="删除后对方将从联系人列表消失，聊天和朋友圈将被隐藏。重新添加好友后可恢复。"
+                    message="删除后对方将从联系人列表消失，聊天和动态将被隐藏。重新添加好友后可恢复。"
                     icon={AlertCircle}
                     variant="danger"
                     confirmLabel="删除"

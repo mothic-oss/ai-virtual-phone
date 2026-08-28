@@ -388,9 +388,9 @@ export function MomentsFeed({ onCloseApp }: MomentsFeedProps) {
                 <button
                     onClick={() => setShowCompose(true)}
                     className="page-back-btn"
-                    title="发布朋友圈"
+                    title="发布动态"
                     type="button"
-                    aria-label="发布朋友圈"
+                    aria-label="发布动态"
                 >
                     <svg width={22} height={22} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" stroke="currentColor">
                         <rect x="2" y="6" width="20" height="14" rx="2" />
@@ -563,7 +563,7 @@ export function MomentsFeed({ onCloseApp }: MomentsFeedProps) {
             {/* Delete confirm dialog */}
             {confirmDeleteId && (
                 <ConfirmDialog
-                    title="确定删除这条朋友圈吗？"
+                    title="确定删除这条动态吗？"
                     message="删除后无法恢复，评论也会一并删除。"
                     icon={AlertCircle}
                     variant="danger"
@@ -587,7 +587,7 @@ export function MomentsFeed({ onCloseApp }: MomentsFeedProps) {
                                     <div key={i} className="flex flex-col gap-1 px-1">
                                         <span className="ts-13 text-[var(--c-text)]">
                                             <span className="font-semibold">{n.authorName}</span>
-                                            {n.type === "comment" ? " 评论了你：" : n.type === "reply" ? " 回复了你：" : " 赞了你的朋友圈"}
+                                            {n.type === "comment" ? " 评论了你：" : n.type === "reply" ? " 回复了你：" : " 赞了你的动态"}
                                         </span>
                                         {n.content && <span className="ts-13 text-[var(--c-icon)] leading-relaxed">{n.content.slice(0, 100)}{n.content.length > 100 ? "..." : ""}</span>}
                                     </div>

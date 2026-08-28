@@ -201,11 +201,11 @@ const PRIMARY_DATA_MODULES: DataModuleDefinition[] = [
   {
     id: "social",
     label: "社交内容",
-    description: "朋友圈、小红书、好友申请和社交互动状态",
+    description: "动态、小红书、好友申请和社交互动状态",
     variant: "action",
     sources: [
       // Moments posts & comments live in their own DB (per-record rows).
-      { type: "indexeddb", dbName: "AiPhoneMomentsDB", label: "朋友圈记录" },
+      { type: "indexeddb", dbName: "AiPhoneMomentsDB", label: "动态记录" },
       {
         type: "kv",
         label: "社交状态与小红书",

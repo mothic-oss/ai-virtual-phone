@@ -150,7 +150,7 @@ async function processImmediatePostQueue() {
     // Notify UI globally
     if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("moments-immediate-post-done"));
-        window.dispatchEvent(new CustomEvent("global-notice", { detail: "朋友圈发帖完成" }));
+        window.dispatchEvent(new CustomEvent("global-notice", { detail: "动态发布完成" }));
     }
 }
 
@@ -1458,7 +1458,7 @@ async function executeReactionTask(task: PendingReaction) {
             const character = chars.find(c => c.id === task.characterId);
             if (!character) return;
             await generateNPCReactionsViaLLM(post, character);
-            if (isUserPost) sendBrowserNotification("朋友圈", { body: "有新的NPC互动" });
+            if (isUserPost) sendBrowserNotification("动态", { body: "有新的NPC互动" });
             break;
         }
         case "ai_comment": {
@@ -1471,9 +1471,9 @@ async function executeReactionTask(task: PendingReaction) {
             }
             const didComment = await generateAIComment(post, character);
             if (isUserPost && didComment) {
-                sendBrowserNotification("朋友圈", { body: `${character.name} 评论了你的动态` });
+                sendBrowserNotification("动态", { body: `${character.name} 评论了你的动态` });
             } else if (isUserPost && didLike) {
-                sendBrowserNotification("朋友圈", { body: `${character.name} 赞了你的朋友圈` });
+                sendBrowserNotification("动态", { body: `${character.name} 赞了你的动态` });
             }
             break;
         }
@@ -1486,7 +1486,7 @@ async function executeReactionTask(task: PendingReaction) {
             if (visibleTriggeringComments.length === 0) return;
             const replyChar = chars.find(c => c.id === task.characterId);
             const didReply = await triggerCharacterReply(post, task.characterId, visibleTriggeringComments);
-            if (didReply) sendBrowserNotification("朋友圈", { body: `${replyChar?.name || "角色"} 回复了你的评论` });
+            if (didReply) sendBrowserNotification("动态", { body: `${replyChar?.name || "角色"} 回复了你的评论` });
             break;
         }
         case "npc_reply": {
@@ -1498,7 +1498,7 @@ async function executeReactionTask(task: PendingReaction) {
                 : undefined;
             if (!triggeringComment) return;
             const didReply = await generateTargetedNPCReply(post, ownerChar, triggeringComment, task.targetNpcName);
-            if (didReply) sendBrowserNotification("朋友圈", { body: `${task.targetNpcName} 回复了你的评论` });
+            if (didReply) sendBrowserNotification("动态", { body: `${task.targetNpcName} 回复了你的评论` });
             break;
         }
     }

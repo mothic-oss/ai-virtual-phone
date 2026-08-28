@@ -144,7 +144,7 @@ export async function retryMomentGeneratedPhoto(post: MomentPost, nextDescriptio
             photoGenerationPrompt: generated.prompt,
             photoGenerationError: undefined,
         });
-        if (!updated) throw new Error("原朋友圈不存在，无法替换图片");
+        if (!updated) throw new Error("原动态不存在，无法替换图片");
         dispatchMomentsUpdated();
         return updated;
     } catch (error) {

@@ -388,7 +388,7 @@ export function UserProfilePanel({ onClose, className }: UserProfilePanelProps) 
                             <div className="w-[42px] h-[42px] rounded-[14px] bg-[color-mix(in_srgb,var(--c-warning)_15%,transparent)] text-[var(--c-warning)] flex items-center justify-center">
                                 <Radio size={22} strokeWidth={2} />
                             </div>
-                            <span className="ts-12 font-semibold text-[var(--c-text-title)]">朋友圈互动</span>
+                            <span className="ts-12 font-semibold text-[var(--c-text-title)]">动态互动</span>
                         </button>
                         <button className="flex flex-col items-center gap-2 flex-1" onClick={() => { window.dispatchEvent(new CustomEvent("chat-hide-tabbar", { detail: true })); setShowStickerManager(true); }}>
                             <div className="w-[42px] h-[42px] rounded-[14px] bg-[#10b981]/15 text-[#10b981] flex items-center justify-center">
@@ -507,7 +507,7 @@ function ChatCSSEditor({ onBack }: { onBack: () => void }) {
         <PageShell title="自定义 CSS" onBack={() => { window.dispatchEvent(new CustomEvent("chat-hide-tabbar", { detail: false })); onBack(); }}>
             <div className="p-4 flex flex-col gap-3 flex-1">
                 <div className="ts-12 text-[var(--c-text)] opacity-70">
-                    在此输入 CSS 自定义聊天页面样式（联系人列表、朋友圈、聊天室默认样式等）。单独聊天室的 CSS 优先级更高。
+                    在此输入 CSS 自定义聊天页面样式（联系人列表、动态、聊天室默认样式等）。单独聊天室的 CSS 优先级更高。
                 </div>
                 <textarea
                     value={css}
@@ -803,7 +803,7 @@ function InlineMomentsSettings({ onBack }: { onBack: () => void }) {
     }, []);
 
     return (
-        <PageShell title="朋友圈互动设置" onBack={onBack} className="absolute inset-0 z-[100]">
+        <PageShell title="动态互动设置" onBack={onBack} className="absolute inset-0 z-[100]">
             <div className="page-menu profile-settings-menu">
                 <div className="menu-group">
                     <ProfileSettingsSliderItem
@@ -891,7 +891,7 @@ function InlineMomentsSettings({ onBack }: { onBack: () => void }) {
                         icon={Clock}
                         color={CONTENT_APP_ACCENTS.calendar}
                         label="NPC互动延迟"
-                        desc="NPC 对朋友圈产生互动的延迟"
+                        desc="NPC 对动态产生互动的延迟"
                         value={config.npcReactionDelayMin}
                         valueLabel={`${config.npcReactionDelayMin}分钟`}
                         min={1}
@@ -917,7 +917,7 @@ function InlineMomentsSettings({ onBack }: { onBack: () => void }) {
                     <div className="menu-item">
                         <ProfileSettingsIcon icon={MessageSquare} color={CONTENT_APP_ACCENTS.moments} />
                         <div className="menu-label-group">
-                            <span className="menu-label">朋友圈双语翻译</span>
+                            <span className="menu-label">动态双语翻译</span>
                             <span className="menu-desc">外语帖子、评论和回复自动附中文译文</span>
                         </div>
                         <div className="menu-right">
@@ -945,7 +945,7 @@ function InlineMomentsSettings({ onBack }: { onBack: () => void }) {
                             <button className="menu-item" onClick={openBilingualPromptEditor}>
                                 <ProfileSettingsIcon icon={FileCode2} color={BINDING_ACCENTS.api} />
                                 <div className="menu-label-group">
-                                    <span className="menu-label">朋友圈双语提示词</span>
+                                    <span className="menu-label">动态双语提示词</span>
                                 </div>
                                 <div className="menu-right">
                                     <span className="menu-desc mr-1">
@@ -1001,7 +1001,7 @@ function InlineMomentsSettings({ onBack }: { onBack: () => void }) {
                         <ProfileSettingsIcon icon={Send} color={CONTENT_APP_ACCENTS.chat} />
                         <div className="menu-label-group">
                             <span className="menu-label">立即发帖</span>
-                            <span className="menu-desc">{posting ? "发帖中..." : "选择角色立即发一条朋友圈"}</span>
+                            <span className="menu-desc">{posting ? "发帖中..." : "选择角色立即发一条动态"}</span>
                         </div>
                         {showCharPicker && selectedIds.size > 0 && (
                             <button className="ui-btn ui-btn-success ts-12" style={{ padding: "4px 12px" }}
@@ -1040,7 +1040,7 @@ function InlineMomentsSettings({ onBack }: { onBack: () => void }) {
             {editingBilingualPrompt && (
                 <div className="modal-overlay">
                     <div className="modal-dialog chat-bilingual-prompt-dialog">
-                        <div className="ts-17 font-semibold text-center text-[var(--c-text)]">朋友圈双语提示词</div>
+                        <div className="ts-17 font-semibold text-center text-[var(--c-text)]">动态双语提示词</div>
                         <textarea
                             className="ui-input chat-bilingual-prompt-textarea"
                             value={bilingualPromptDraft}
