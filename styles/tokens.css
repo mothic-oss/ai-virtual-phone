@@ -248,23 +248,23 @@
    用户可通过聊天页面 CSS 编辑器覆盖
    ═══════════════════════════════════════════ */
 .chat-app {
-  --c-header-bg: #FFFFFF;
-  --c-page-body-bg: #FAFAFA;
+  --c-header-bg: #075e54;
+  --c-page-body-bg: #f7f5f1;
   --c-card: #FFFFFF;
-  --c-card-border: #F0F0F0;
+  --c-card-border: #e8e6e1;
   --c-polaroid: #FEFEFE;
   --c-polaroid-back: #F0F0F0;
   --c-panel: #FFFFFF;
   --c-panel-border: #D9DADB;
-  --c-text-title: #2C3440;
-  --c-text: #797E85;
-  --c-icon-active: #4A4A4A;
-  --c-icon: #A0A3A8;
-  --c-input: #EBEBEB;
-  --c-input-border: #DADBDF;
-  --c-bubble-self: var(--c-action-blue, #246bfd);
+  --c-text-title: #17252b;
+  --c-text: #667781;
+  --c-icon-active: #128c7e;
+  --c-icon: #8696a0;
+  --c-input: #f0f2f5;
+  --c-input-border: #e2e7e9;
+  --c-bubble-self: #d9fdd3;
   --c-bubble-other: #FFFFFF;
-  --c-success: #34C759;
+  --c-success: #25d366;
   --c-danger: #FF3B30;
   --c-warning: #FF9500;
   --c-redpacket: #e8602c;
