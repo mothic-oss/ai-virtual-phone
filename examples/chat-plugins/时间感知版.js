@@ -3,7 +3,7 @@ export default {
     id: "auto-poke-ultimate",
     name: "角色主动出击（群聊与记忆版）",
     apiVersion: 1,
-    version: "7.0.0",
+    version: "7.0.1",
     description: "支持私聊和群聊主动消息；生成前读取现有记忆，发送后接入自动总结计数。",
     permissions: ["chat.read", "chat.write", "memory.read", "memory.write", "ai", "storage", "ui"],
     settings: [
@@ -195,6 +195,7 @@ export default {
 3. 像真人用手机聊天，优先短句，不写散文、动作描写、心理描写或角色名前缀。
 4. 要连发多条时用 ||| 分隔。
 5. 用户有一段时间没有发言，请自然地开启话题；不要机械地问“在吗”，也不要重复最近已经说过的话。
+6. 你只能输出角色自己发送的消息。禁止替用户发言、模仿用户续写对话，禁止输出 user:、用户:、assistant: 或角色姓名前缀。
 ${extraPrompt || ""}`;
     }
 
@@ -241,9 +242,9 @@ ${history || "暂无聊天记录"}
 ${memoryContext || "暂无可用记忆"}
 
 ${commonRules(extraPrompt)}
-6. 由你判断此刻最适合由哪一位群成员开口；必要时可让不同成员接一两句，但不要为了热闹强行全员发言。
-7. 只能选择上方列出的成员 ID。每一条消息必须严格写成 [[角色ID]]消息内容，多条仍用 ||| 分隔。
-8. 每位成员只能使用“自己的记忆”以及群聊中已经公开的信息；不得让一个成员凭空知道另一位成员的私密记忆。
+7. 由你判断此刻最适合由哪一位群成员开口；必要时可让不同成员接一两句，但不要为了热闹强行全员发言。
+8. 只能选择上方列出的成员 ID。每一条消息必须严格写成 [[角色ID]]消息内容，多条仍用 ||| 分隔。
+9. 每位成员只能使用“自己的记忆”以及群聊中已经公开的信息；不得让一个成员凭空知道另一位成员的私密记忆。
 
 输出示例：${outputExample}
 只输出规定格式，不要解释。`;
@@ -259,11 +260,13 @@ ${commonRules(extraPrompt)}
       for (const rawPart of normalizedReply.split(/\|\|\||\n(?=\s*\[\[)/)) {
         let part = rawPart.trim().replace(/^["']|["']$/g, "");
         if (!part) continue;
+        if (/^\s*(?:\[\[?|\[)?\s*(?:user|用户|human|人类|system|系统)\s*(?:\]\]?|\])?\s*[:：]?/i.test(part)) continue;
         let character = null;
         const idMatch = part.match(/^\[\[([^\]]+)\]\]\s*/);
         if (idMatch) {
           const identity = idMatch[1].trim();
           character = byId.get(identity) || byName.get(identity) || null;
+          if (!character) continue;
           part = part.slice(idMatch[0].length).trim();
         } else {
           const nameMatch = part.match(/^([^:：]{1,40})[:：]\s*/);
@@ -276,6 +279,26 @@ ${commonRules(extraPrompt)}
         if (character && part) results.push({ character, text: part });
       }
       return results;
+    }
+
+    function sanitizeDirectReplyPart(rawPart, characterName) {
+      const kept = [];
+      const prefixPattern = /^\s*(?:\[([^\]\n]{1,48})\]|([^:：\n]{1,48}))\s*[:：]\s*(.*)$/;
+      for (const line of rawPart.split("\n")) {
+        const match = line.match(prefixPattern);
+        if (!match) {
+          kept.push(line);
+          continue;
+        }
+        const label = String(match[1] || match[2] || "").trim().toLowerCase();
+        if (["user", "用户", "human", "人类", "system", "系统", "developer", "开发者"].includes(label)) continue;
+        if (["assistant", "助手", "ai", "bot", "角色", String(characterName || "").trim().toLowerCase()].includes(label)) {
+          if (match[3]) kept.push(match[3]);
+          continue;
+        }
+        kept.push(line);
+      }
+      return kept.join("\n").trim();
     }
 
     async function notifyMemoryActivity(characterIds, eventCount) {
@@ -362,7 +385,7 @@ ${commonRules(extraPrompt)}
           } else {
             outgoing = reply.trim().replace(/^["']|["']$/g, "")
               .split("|||")
-              .map(text => text.trim())
+              .map(text => sanitizeDirectReplyPart(text.trim(), characters[0].name))
               .filter(Boolean)
               .map(text => ({ character: characters[0], text }));
           }

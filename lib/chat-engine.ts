@@ -85,6 +85,7 @@ import {
 import { parseOfflineResponse, type ParsedOfflineResponse } from "./chat-offline-storage";
 import { throwIfAborted } from "./abort-utils";
 import { armShortcutContinuation, type ShortcutContinuationHandle, type ShortcutContinuationStyle } from "./shortcut-continuation-client";
+import { sanitizeAssistantRoleOutput } from "./assistant-role-sanitizer";
 
 
 
@@ -93,6 +94,23 @@ export class ChatEngineError extends Error {
         super(message);
         this.name = "ChatEngineError";
     }
+}
+
+function sanitizeDirectChatOutputOrThrow(
+    text: string,
+    meta?: { characterName?: string; userName?: string },
+): string {
+    const sanitized = sanitizeAssistantRoleOutput(text, meta);
+    if (sanitized.removedUserLines > 0) {
+        console.warn("[ChatEngine] Blocked model role leakage:", {
+            characterName: meta?.characterName,
+            removedUserLines: sanitized.removedUserLines,
+        });
+    }
+    if (sanitized.detected && !sanitized.text) {
+        throw new ChatEngineError("模型刚才串台模仿了用户，系统已拦截这条回复。请重新生成一次。");
+    }
+    return sanitized.text;
 }
 
 const LLM_IMAGE_MAX_SIDE = 512;
@@ -991,7 +1009,10 @@ export async function sendLLMRequest(
             appTags: options?.appTags,
             followUpCount: options?.followUpCount,
         });
-        return applyOutputRegex(rawOutput, regexes, { macroEngine, activeTags });
+        const filteredOutput = applyOutputRegex(rawOutput, regexes, { macroEngine, activeTags });
+        return options?.appId === "chat"
+            ? sanitizeDirectChatOutputOrThrow(filteredOutput, meta)
+            : filteredOutput;
     } catch (error: unknown) {
         if (error instanceof DOMException && (error as DOMException).name === "AbortError") {
             throw new ChatEngineError("AI 回复超时（500秒），请重试。");
@@ -2104,12 +2125,13 @@ async function generateNativeChatCompletion(
         }
         throwIfAborted(options?.signal);
 
-        const { cleanText: afterActionStrip, actions } = parseActionTags(result.content);
+        const sanitizedResultContent = sanitizeDirectChatOutputOrThrow(result.content, meta);
+        const { cleanText: afterActionStrip, actions } = parseActionTags(sanitizedResultContent);
         if (actions.length > 0) {
             throwIfAborted(options?.signal);
             dispatchActions(actions, actionContext).catch(err => console.warn("[ChatEngine] Action dispatch failed:", err));
         }
-        const assistantForToolContext = stripStateAndInnerForPrompt(result.content);
+        const assistantForToolContext = stripStateAndInnerForPrompt(sanitizedResultContent);
 
         if (result.toolCalls.length === 0) {
             throwIfAborted(options?.signal);
@@ -2124,7 +2146,7 @@ async function generateNativeChatCompletion(
         throwIfAborted(options?.signal);
         await callbacks?.onNativeToolAssistantTurn?.({
             content: afterActionStrip,
-            rawContent: result.content,
+            rawContent: sanitizedResultContent,
             reasoning: result.reasoning,
             openRouterReasoningDetails: result.openRouterReasoningDetails,
             toolCalls: result.toolCalls,
