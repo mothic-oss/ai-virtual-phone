@@ -367,7 +367,10 @@ class ChatPluginRuntime {
                             retrieveCoreMemoriesForPrompt(characterId, config),
                             retrieveMemoriesForPrompt(characterId, query.trim() || "近期关系与重要事件", config),
                         ]);
-                        const limit = Math.max(0, Math.min(50, Math.floor(shortTermLimit)));
+                        const parsedLimit = Number(shortTermLimit);
+                        const limit = Number.isFinite(parsedLimit)
+                            ? Math.max(0, Math.min(50, Math.floor(parsedLimit)))
+                            : 20;
                         const timeline = filterTimelineByAllowedSources(
                             loadNativeTimeline(characterId),
                             config.shortTermAllowedSources,
@@ -381,7 +384,10 @@ class ChatPluginRuntime {
                         };
                     },
                     recordActivity: async ({ characterIds, eventCount = 1 }) => {
-                        const count = Math.max(0, Math.min(20, Math.floor(eventCount)));
+                        const parsedCount = Number(eventCount);
+                        const count = Number.isFinite(parsedCount)
+                            ? Math.max(0, Math.min(20, Math.floor(parsedCount)))
+                            : 1;
                         if (count <= 0) return;
                         const characters = loadCharacters();
                         const uniqueIds = [...new Set(characterIds.map(id => id.trim()).filter(Boolean))];

@@ -5,7 +5,7 @@ export default {
     apiVersion: 1,
     version: "7.0.0",
     description: "支持私聊和群聊主动消息；生成前读取现有记忆，发送后接入自动总结计数。",
-    permissions: ["chat.read", "chat.write", "ai", "storage", "ui"],
+    permissions: ["chat.read", "chat.write", "memory.read", "memory.write", "ai", "storage", "ui"],
     settings: [
       { key: "globalEnabled", label: "全局总开关（关闭则全部静默）", type: "boolean", default: true },
       { key: "memoryEnabled", label: "生成主动消息时读取记忆", type: "boolean", default: true },
@@ -15,6 +15,7 @@ export default {
   },
 
   setup(ctx) {
+    const inFlightSessions = new Set();
     ctx.ui.injectCSS(`
       .poke-panel { background:#fff; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,.06); padding:20px; margin-top:16px; font-family:system-ui,-apple-system,sans-serif; border:1px solid #f0f0f0; }
       .poke-title { font-size:16px; font-weight:600; margin:0 0 16px; display:flex; align-items:center; color:#1a1a1a; gap:8px; }
@@ -111,6 +112,7 @@ export default {
       const [endHour, endMinute] = config.sleepEnd.split(":").map(Number);
       const start = startHour * 60 + startMinute;
       const end = endHour * 60 + endMinute;
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start === end) return false;
       if (start < end) return current >= start && current < end;
       return current >= start || current < end;
     }
@@ -241,6 +243,7 @@ ${memoryContext || "暂无可用记忆"}
 ${commonRules(extraPrompt)}
 6. 由你判断此刻最适合由哪一位群成员开口；必要时可让不同成员接一两句，但不要为了热闹强行全员发言。
 7. 只能选择上方列出的成员 ID。每一条消息必须严格写成 [[角色ID]]消息内容，多条仍用 ||| 分隔。
+8. 每位成员只能使用“自己的记忆”以及群聊中已经公开的信息；不得让一个成员凭空知道另一位成员的私密记忆。
 
 输出示例：${outputExample}
 只输出规定格式，不要解释。`;
@@ -252,13 +255,15 @@ ${commonRules(extraPrompt)}
       const fallback = characters[0];
       const results = [];
 
-      for (const rawPart of reply.split("|||")) {
+      const normalizedReply = reply.trim().replace(/^```[^\n]*\n?/, "").replace(/```$/, "").trim();
+      for (const rawPart of normalizedReply.split(/\|\|\||\n(?=\s*\[\[)/)) {
         let part = rawPart.trim().replace(/^["']|["']$/g, "");
         if (!part) continue;
         let character = null;
         const idMatch = part.match(/^\[\[([^\]]+)\]\]\s*/);
         if (idMatch) {
-          character = byId.get(idMatch[1].trim()) || null;
+          const identity = idMatch[1].trim();
+          character = byId.get(identity) || byName.get(identity) || null;
           part = part.slice(idMatch[0].length).trim();
         } else {
           const nameMatch = part.match(/^([^:：]{1,40})[:：]\s*/);
@@ -318,6 +323,7 @@ ${commonRules(extraPrompt)}
       const sessions = ctx.data.sessions.list();
 
       for (const session of sessions) {
+        if (inFlightSessions.has(session.id)) continue;
         const characters = getSessionCharacters(session);
         if (characters.length === 0) continue;
         const config = getTargetConfig(session);
@@ -332,7 +338,7 @@ ${commonRules(extraPrompt)}
         if (now < Number(lastChat) + Number(targetDelay)) continue;
         if (isSleeping(config)) continue;
 
-        ctx.data.variables.set("poke_last_chat", now + 99999999, "session", session.id);
+        inFlightSessions.add(session.id);
         try {
           const messages = ctx.data.messages.list(session.id);
           const characterMap = new Map(ctx.data.characters.list().map(character => [character.id, character.name]));
@@ -360,6 +366,7 @@ ${commonRules(extraPrompt)}
               .filter(Boolean)
               .map(text => ({ character: characters[0], text }));
           }
+          outgoing = outgoing.slice(0, 6);
 
           if (outgoing.length === 0) {
             resetTimer(session);
@@ -369,6 +376,8 @@ ${commonRules(extraPrompt)}
         } catch (error) {
           ctx.system.log("主动发消息失败", error);
           ctx.data.variables.set("poke_last_chat", now - Number(targetDelay) + 300000, "session", session.id);
+        } finally {
+          inFlightSessions.delete(session.id);
         }
       }
     }, 60000);
