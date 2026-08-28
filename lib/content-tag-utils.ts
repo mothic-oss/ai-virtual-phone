@@ -98,7 +98,7 @@ export const CONTENT_SCOPE_TAG_GROUPS: TagGroupProfile[] = [
     },
     {
         id: "moments",
-        label: "朋友圈",
+        label: "动态",
         tags: ["moments"],
         minors: [
             commonMinor("moments", ["moments"]),

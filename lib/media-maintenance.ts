@@ -771,7 +771,7 @@ export function formatMediaMaintenanceResult(result: MediaMaintenanceResult): st
   if (dynamicChanged === 0) return "没有发现需要清理的过期媒体或孤儿主题素材。";
   return [
     `聊天图片：压缩 ${result.chatImagesCompressed}，清理 ${result.chatImagesCleaned}`,
-    `朋友圈图片：压缩 ${result.momentImagesCompressed}，清理 ${result.momentImagesCleaned}`,
+    `动态图片：压缩 ${result.momentImagesCompressed}，清理 ${result.momentImagesCleaned}`,
     `小红书图片：压缩 ${result.xiaohongshuImagesCompressed}，清理 ${result.xiaohongshuImagesCleaned}`,
     `本地音乐：清理 ${result.musicTracksCleaned}`,
     `孤儿主题素材：删除 ${result.deletedAssets}`,

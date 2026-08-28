@@ -208,7 +208,7 @@ export const CONTENT_APP_LABELS: Record<ContentAppId, string> = {
     shopping: "购物",
     calendar: "日历",
     interview_magazine: "在场",
-    moments: "朋友圈",
+    moments: "动态",
     group_chat: "群聊",
     vn: "漫卷",
     adventure: "冒险",

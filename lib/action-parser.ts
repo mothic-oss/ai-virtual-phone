@@ -364,7 +364,7 @@ function dispatchMomentsComment(action: ActionTag, context: ActionContext): void
     console.log(`[ActionParser] Created comment on post "${post.content.slice(0, 20)}..." from ${context.sourceEngine}`);
     dispatchMomentsUpdated();
     if (post.authorType === "user") {
-        sendBrowserNotification("朋友圈", { body: `${resolveActionCharacterName(action, context)} 评论了你的动态` });
+        sendBrowserNotification("动态", { body: `${resolveActionCharacterName(action, context)} 评论了你的动态` });
     }
 }
 
@@ -396,7 +396,7 @@ function dispatchMomentsReply(action: ActionTag, context: ActionContext): void {
     console.log(`[ActionParser] Created reply to comment "${comment.content.slice(0, 20)}..." from ${context.sourceEngine}`);
     dispatchMomentsUpdated();
     if (comment.authorType === "user") {
-        sendBrowserNotification("朋友圈", { body: `${resolveActionCharacterName(action, context)} 回复了你的评论` });
+        sendBrowserNotification("动态", { body: `${resolveActionCharacterName(action, context)} 回复了你的评论` });
     }
 }
 

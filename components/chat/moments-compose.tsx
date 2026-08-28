@@ -194,7 +194,7 @@ export function MomentsCompose({ onClose, onPublished }: Props) {
                 data-ui="modal-dialog"
                 role="dialog"
                 aria-modal="true"
-                aria-label="发朋友圈"
+                aria-label="发动态"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="compose-modal-header">
@@ -203,7 +203,7 @@ export function MomentsCompose({ onClose, onPublished }: Props) {
                             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
-                    <span className="compose-modal-title">发朋友圈</span>
+                    <span className="compose-modal-title">发动态</span>
                     <button onClick={handlePublish} disabled={!canPublish} className="compose-header-icon compose-header-send" aria-label="发表">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -241,7 +241,7 @@ export function MomentsCompose({ onClose, onPublished }: Props) {
                         <input
                             value={photoDesc || ""}
                             onChange={e => setPhotoDesc(e.target.value)}
-                            placeholder="纯文字朋友圈不需要图片时"
+                            placeholder="纯文字动态不需要图片时"
                             className="ui-input w-full mt-2"
                             style={{ display: 'none' }} // Assuming mostly image flows for real, hidden to keep UI clean unless needed
                         />

@@ -87,8 +87,8 @@ const CATEGORY_META: Record<StorageCategoryId, { label: string; description: str
     supportsKeepDays: true,
   },
   moments_images: {
-    label: "朋友圈图片",
-    description: "朋友圈帖子里的真实图片。清理后帖子和文字保留。",
+    label: "动态图片",
+    description: "动态帖子里的真实图片。清理后帖子和文字保留。",
     supportsKeepDays: true,
   },
   xiaohongshu_images: {
@@ -226,7 +226,7 @@ export async function scanStorageSpace(onProgress?: (detail: string) => void): P
   stats.push(makeStat("chat_voice", chatTotals.voice.bytes, chatTotals.voice.count));
   stats.push(makeStat("chat_media_files", chatTotals.file.bytes, chatTotals.file.count));
 
-  onProgress?.("统计朋友圈图片…");
+  onProgress?.("统计动态图片…");
   await hydrateMomentsStorage().catch(() => undefined);
   let momentsBytes = 0;
   let momentsCount = 0;
