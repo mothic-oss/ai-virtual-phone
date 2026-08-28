@@ -146,8 +146,16 @@ export function parseGroupChatResponse(
 
     const segments: { name: string; lines: string[] }[] = [];
     let currentName: string | null = null;
+    const leakedRolePattern = /^\s*\[?\s*(?:user|用户|human|人类|assistant|助手|system|系统|developer|开发者)\s*\]?\s*[:：]/i;
 
     for (const line of text.split("\n")) {
+        // Plain `user: ...` does not satisfy the normal [成员名]: protocol. If it
+        // appears inside a valid member block, treating it as continuation text
+        // would persist a fake user turn inside that character's bubble.
+        if (leakedRolePattern.test(line)) {
+            currentName = null;
+            continue;
+        }
         const match = line.match(pattern);
         if (match) {
             const name = match[1].trim();
