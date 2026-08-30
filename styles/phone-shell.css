@@ -983,13 +983,19 @@
     opacity: 0.68;
     transform: scale(0.92);
     border-radius: 24px;
-    animation-timing-function: cubic-bezier(0.22, 0.55, 0.3, 1);
+    animation-timing-function: cubic-bezier(0.22, 0.5, 0.3, 1);
   }
-  86% {
+  82% {
     opacity: 1;
-    transform: scale(1.006);
-    border-radius: 5px;
-    animation-timing-function: cubic-bezier(0.2, 0.82, 0.2, 1);
+    transform: scale(0.985);
+    border-radius: 7px;
+    animation-timing-function: cubic-bezier(0.35, 0, 0.8, 1);
+  }
+  92% {
+    opacity: 1;
+    transform: scale(1.004);
+    border-radius: 3px;
+    animation-timing-function: cubic-bezier(0.15, 0.9, 0.3, 1);
   }
   100% {
     opacity: 1;
