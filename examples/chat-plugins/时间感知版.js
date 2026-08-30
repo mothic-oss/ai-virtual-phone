@@ -3,7 +3,7 @@ export default {
     id: "auto-poke-ultimate",
     name: "角色主动出击（群聊与记忆版）",
     apiVersion: 1,
-    version: "7.2.0",
+    version: "7.2.1",
     description: "从当前聊天室直接绑定私聊或群聊，并可按会话挂载世界书；生成前读取记忆，发送后接入自动总结计数。",
     permissions: ["chat.read", "chat.write", "memory.read", "memory.write", "world.read", "ai", "storage", "ui"],
     settings: [
