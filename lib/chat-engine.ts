@@ -474,6 +474,12 @@ function presetIncludesToolsMacro(preset: PresetConfig | null, appId: string, ap
 
 const EMPTY_GENERATE_CONTINUATION_PROMPT = "这是一次用户没有输入新消息、稍后再次点击“生成”的请求。请让角色像真人隔一段时间后再次发消息，而不是把上一条回复当成刚说完并机械续写。可以自然承接仍有必要的话题，也可以根据关系和当前时段换一个合适的话题；不要编造用户在空档期说过话或做过什么，也不要直接复述系统提示、时间字段或工具内容。";
 
+const EMPTY_GROUP_GENERATE_CONTINUATION_PROMPT = "这是一次用户没有输入新消息、稍后再次点击群聊“生成”的请求。请把它视为群聊在现实时间流逝后的再次活跃，而不是上一轮回复未结束的自动续写。先判断此刻最可能由哪位群成员开口；不必让最后发言者继续，也不要为了热闹强行让全员发言。任何成员都不能替用户发言、模仿用户口吻，或编造空档期里没有出现在记录中的对话与行动。";
+
+export type EmptyGenerateContext = {
+    mode?: "single" | "group";
+};
+
 function shouldApplyEmptyGenerateGuard(config: ApiConfig): boolean {
     return config.preventEmptyGenerateRambling === true;
 }
@@ -512,7 +518,11 @@ export function formatElapsedChatGap(elapsedMs: number): string {
     return remainingHours > 0 ? `约 ${days} 天 ${remainingHours} 小时` : `约 ${days} 天`;
 }
 
-function buildEmptyGenerateTimeGapInstruction(history: ChatMessage[], now = new Date()): string {
+function buildEmptyGenerateTimeGapInstruction(
+    history: ChatMessage[],
+    now = new Date(),
+    context?: EmptyGenerateContext,
+): string {
     const lastMessage = [...history].reverse().find(isVisibleConversationalHistoryMessage);
     if (!lastMessage) return "";
     const lastAt = Date.parse(lastMessage.createdAt || "");
@@ -523,7 +533,9 @@ function buildEmptyGenerateTimeGapInstruction(history: ChatMessage[], now = new 
     return [
         `上一条可见消息距现在已经过去${gap}。`,
         crossedPeriod
-            ? "这不是同一秒里的连续气泡，而是过了一段现实时间后角色再次开口。必须体现时间已经推进：不要续完上一条未完句、不要假定刚才的动作仍在持续，也不要无过渡地紧接上一句话。"
+            ? context?.mode === "group"
+                ? "这不是同一秒里的连续群聊气泡，而是群聊沉寂一段现实时间后再次有人开口。不能假定所有成员一直在线、不能假定刚才的动作或场景仍在持续，也不要无过渡地紧接上一句话。"
+                : "这不是同一秒里的连续气泡，而是过了一段现实时间后角色再次开口。必须体现时间已经推进：不要续完上一条未完句、不要假定刚才的动作仍在持续，也不要无过渡地紧接上一句话。"
             : "间隔较短，可以自然接续，但仍不要重复上一条内容。",
         "时间信息只用于判断语境和说话方式；除非聊天中自然需要，不要生硬报时。",
     ].join("\n");
@@ -533,6 +545,7 @@ export function appendEmptyGenerateGuardMessage(
     messages: LLMMessage[],
     config: ApiConfig,
     history: ChatMessage[],
+    context?: EmptyGenerateContext,
 ): void {
     let lastAssistantIndex = -1;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -548,13 +561,17 @@ export function appendEmptyGenerateGuardMessage(
         .some(message => message.role === "user");
 
     if (!hasUserAfterLastAssistant) {
-        const timeGapInstruction = buildEmptyGenerateTimeGapInstruction(history);
+        const timeGapInstruction = buildEmptyGenerateTimeGapInstruction(history, new Date(), context);
         const antiRamblingInstruction = shouldApplyEmptyGenerateGuard(config) && history.some(isRealUserHistoryMessage)
             ? "本次只回复一到数条自然短消息，不要擅自开启大型事件、长篇独白或总结。"
             : "";
         messages.push({
             role: "user",
-            content: [EMPTY_GENERATE_CONTINUATION_PROMPT, timeGapInstruction, antiRamblingInstruction].filter(Boolean).join("\n\n"),
+            content: [
+                context?.mode === "group" ? EMPTY_GROUP_GENERATE_CONTINUATION_PROMPT : EMPTY_GENERATE_CONTINUATION_PROMPT,
+                timeGapInstruction,
+                antiRamblingInstruction,
+            ].filter(Boolean).join("\n\n"),
         });
     }
 }
