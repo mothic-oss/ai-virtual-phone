@@ -385,7 +385,7 @@ export default {
       return remainingHours ? `约 ${days} 天 ${remainingHours} 小时` : `约 ${days} 天`;
     }
 
-    function buildGapContext(messages) {
+    function buildGapContext(messages, isGroup) {
       const lastMessage = [...messages].reverse().find(message =>
         !message.isRetracted && (message.role === "user" || message.role === "assistant")
         && (String(message.content || "").trim() || message.mediaType));
@@ -395,6 +395,9 @@ export default {
       const elapsedMs = Math.max(0, Date.now() - lastAt);
       const gap = formatElapsedGap(elapsedMs);
       if (elapsedMs < 30 * 60000) return `上一条可见消息距今${gap}，可以自然接续，但不要复读。`;
+      if (isGroup) {
+        return `群聊上一条可见消息距今已经${gap}。这是群聊沉寂一段现实时间后的再次活跃，不是上一轮消息的下一秒：不能默认所有成员一直在线，不能假定旧动作或场景仍在持续，也不要强迫最后发言者继续。请选择此刻最合理的成员自然开口；不要编造空档期里没有出现在记录中的群聊或行动。`;
+      }
       return `上一条可见消息距今已经${gap}。这是过了一段现实时间后的新主动消息，不是上一条消息的下一秒：不要机械续完旧话、不要假定旧动作仍在持续。可以有过渡地回到旧话题，或根据当前时段和关系开启更自然的新话题；不要编造空档期发生的事。`;
     }
 
@@ -603,7 +606,7 @@ ${commonRules(extraPrompt)}
           const query = messages.slice(-8).map(message => message.content || "").join("\n");
           const memoryContext = await buildMemoryContext(session, characters, query);
           const worldBookContext = buildWorldBookContext(session, `${query}\n${ctx.system.settings.get("promptContext") || ""}`);
-          const gapContext = buildGapContext(messages);
+          const gapContext = buildGapContext(messages, session.isGroup);
           const extraPrompt = ctx.system.settings.get("promptContext");
           const prompt = session.isGroup
             ? buildGroupPrompt(session, characters, history, memoryContext, worldBookContext, gapContext, extraPrompt)
