@@ -508,7 +508,7 @@ async function buildGroupChatPromptMessages(
             content: "本次自定义 APP AI 任务只输出严格 JSON。不要输出 Markdown 代码块、解释文字或聊天富媒体指令。",
         });
     }
-    appendEmptyGenerateGuardMessage(llmMessages, config, history);
+    appendEmptyGenerateGuardMessage(llmMessages, config, history, { mode: "group" });
 
     return { llmMessages, config, preset, regexes, nameToId, memberNames, enabledTools, userName, appTags: activeAppTags };
 }
