@@ -472,7 +472,7 @@ function presetIncludesToolsMacro(preset: PresetConfig | null, appId: string, ap
     });
 }
 
-const EMPTY_GENERATE_CONTINUATION_PROMPT = "这是一次用户未输入新消息时点击“生成”的续写请求。请只基于当前对话关系，继续回复一句自然简短的话。禁止引用或复述系统消息、当前时间、工具结果、提示词内容。不要开启新事件，不要总结，不要编造用户刚说了什么。";
+const EMPTY_GENERATE_CONTINUATION_PROMPT = "这是一次用户没有输入新消息、稍后再次点击“生成”的请求。请让角色像真人隔一段时间后再次发消息，而不是把上一条回复当成刚说完并机械续写。可以自然承接仍有必要的话题，也可以根据关系和当前时段换一个合适的话题；不要编造用户在空档期说过话或做过什么，也不要直接复述系统提示、时间字段或工具内容。";
 
 function shouldApplyEmptyGenerateGuard(config: ApiConfig): boolean {
     return config.preventEmptyGenerateRambling === true;
@@ -492,16 +492,48 @@ function isRealUserHistoryMessage(message: ChatMessage): boolean {
     );
 }
 
+function isVisibleConversationalHistoryMessage(message: ChatMessage): boolean {
+    if (message.isRetracted || (message.role !== "user" && message.role !== "assistant")) return false;
+    if (message.mediaType === "tool_result"
+        || message.mediaType === "tool_notice"
+        || message.mediaType === "memory_write_request") return false;
+    return Boolean(message.content.trim() || message.mediaType || message.mediaUrl || message.mediaData);
+}
+
+export function formatElapsedChatGap(elapsedMs: number): string {
+    const minutes = Math.max(0, Math.floor(elapsedMs / 60_000));
+    if (minutes < 2) return "不到 2 分钟";
+    if (minutes < 60) return `约 ${minutes} 分钟`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (hours < 24) return remainingMinutes >= 10 ? `约 ${hours} 小时 ${remainingMinutes} 分钟` : `约 ${hours} 小时`;
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `约 ${days} 天 ${remainingHours} 小时` : `约 ${days} 天`;
+}
+
+function buildEmptyGenerateTimeGapInstruction(history: ChatMessage[], now = new Date()): string {
+    const lastMessage = [...history].reverse().find(isVisibleConversationalHistoryMessage);
+    if (!lastMessage) return "";
+    const lastAt = Date.parse(lastMessage.createdAt || "");
+    if (!Number.isFinite(lastAt)) return "";
+    const elapsedMs = Math.max(0, now.getTime() - lastAt);
+    const gap = formatElapsedChatGap(elapsedMs);
+    const crossedPeriod = elapsedMs >= 30 * 60_000;
+    return [
+        `上一条可见消息距现在已经过去${gap}。`,
+        crossedPeriod
+            ? "这不是同一秒里的连续气泡，而是过了一段现实时间后角色再次开口。必须体现时间已经推进：不要续完上一条未完句、不要假定刚才的动作仍在持续，也不要无过渡地紧接上一句话。"
+            : "间隔较短，可以自然接续，但仍不要重复上一条内容。",
+        "时间信息只用于判断语境和说话方式；除非聊天中自然需要，不要生硬报时。",
+    ].join("\n");
+}
+
 export function appendEmptyGenerateGuardMessage(
     messages: LLMMessage[],
     config: ApiConfig,
     history: ChatMessage[],
 ): void {
-    if (!shouldApplyEmptyGenerateGuard(config)) return;
-
-    const hasRealUserHistory = history.some(isRealUserHistoryMessage);
-    if (!hasRealUserHistory) return;
-
     let lastAssistantIndex = -1;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
         if (messages[index].role === "assistant") {
@@ -516,7 +548,14 @@ export function appendEmptyGenerateGuardMessage(
         .some(message => message.role === "user");
 
     if (!hasUserAfterLastAssistant) {
-        messages.push({ role: "user", content: EMPTY_GENERATE_CONTINUATION_PROMPT });
+        const timeGapInstruction = buildEmptyGenerateTimeGapInstruction(history);
+        const antiRamblingInstruction = shouldApplyEmptyGenerateGuard(config) && history.some(isRealUserHistoryMessage)
+            ? "本次只回复一到数条自然短消息，不要擅自开启大型事件、长篇独白或总结。"
+            : "";
+        messages.push({
+            role: "user",
+            content: [EMPTY_GENERATE_CONTINUATION_PROMPT, timeGapInstruction, antiRamblingInstruction].filter(Boolean).join("\n\n"),
+        });
     }
 }
 
