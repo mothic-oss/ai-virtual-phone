@@ -13,7 +13,7 @@ import { kvGet, kvSet, kvRemove, hydrateKvDb } from "./kv-db";
 import { hydrateChatStorage, loadChatMessages, loadChatSessions, loadChatContacts, pushChatMessage, updateChatMessage, type ChatMessage } from "./chat-storage";
 import { isMediaStoreRef, loadMediaBlob } from "./media-cache-storage";
 import { loadCharacters } from "./character-storage";
-import { loadApiConfigs, loadBindingConfig, loadWorldBooks } from "./settings-storage";
+import { loadApiConfigs, loadBindingConfig, loadPresets, loadWorldBooks } from "./settings-storage";
 import { simpleLLMCall } from "./api-helpers";
 import { incrementEventCounter, loadMemoryConfig } from "./memory-storage";
 import { retrieveCoreMemoriesForPrompt, retrieveMemoriesForPrompt } from "./memory-service";
@@ -421,13 +421,20 @@ class ChatPluginRuntime {
             ai: {
                 chat: async ({ prompt, system, temperature, maxTokens }) => {
                     const configs = loadApiConfigs();
-                    const defaultId = loadBindingConfig().globalDefaults.apiConfigId;
+                    const binding = loadBindingConfig();
+                    const defaultId = binding.globalDefaults.apiConfigId;
                     const config = (defaultId ? configs.find(c => c.id === defaultId) : undefined) ?? configs[0];
                     if (!config) throw new Error("尚未配置任何 LLM API，请先到 设置 → API 设置 添加");
+                    const presets = loadPresets();
+                    const presetId = binding.globalDefaults.presetId;
+                    const preset = (presetId ? presets.find(item => item.id === presetId) : undefined)
+                        ?? presets.find(item => item.builtIn)
+                        ?? presets[0];
+                    const effectiveTemperature = temperature ?? preset?.temperature ?? 0.8;
                     const messages: { role: string; content: string }[] = [];
                     if (system?.trim()) messages.push({ role: "system", content: system });
                     messages.push({ role: "user", content: prompt });
-                    const result = await simpleLLMCall(config, messages, { temperature, max_tokens: maxTokens });
+                    const result = await simpleLLMCall(config, messages, { temperature: effectiveTemperature, max_tokens: maxTokens });
                     if (result.error) throw new Error(result.error);
                     return result.content ?? "";
                 },
