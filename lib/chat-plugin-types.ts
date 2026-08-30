@@ -300,6 +300,7 @@ export type ChatPluginContext = {
         chat(opts: {
             prompt: string;
             system?: string;
+            /** 省略时跟随当前全局绑定预设的温度 */
             temperature?: number;
             maxTokens?: number;
         }): Promise<string>;
