@@ -13,7 +13,7 @@ import { kvGet, kvSet, kvRemove, hydrateKvDb } from "./kv-db";
 import { hydrateChatStorage, loadChatMessages, loadChatSessions, loadChatContacts, pushChatMessage, updateChatMessage, type ChatMessage } from "./chat-storage";
 import { isMediaStoreRef, loadMediaBlob } from "./media-cache-storage";
 import { loadCharacters } from "./character-storage";
-import { loadApiConfigs, loadBindingConfig } from "./settings-storage";
+import { loadApiConfigs, loadBindingConfig, loadWorldBooks } from "./settings-storage";
 import { simpleLLMCall } from "./api-helpers";
 import { incrementEventCounter, loadMemoryConfig } from "./memory-storage";
 import { retrieveCoreMemoriesForPrompt, retrieveMemoriesForPrompt } from "./memory-service";
@@ -359,6 +359,10 @@ class ChatPluginRuntime {
                 characters: {
                     list: () => loadCharacters(),
                     get: (id) => loadCharacters().find(c => c.id === id) ?? null,
+                },
+                worldBooks: {
+                    list: () => loadWorldBooks(),
+                    get: (id) => loadWorldBooks().find(book => book.id === id) ?? null,
                 },
                 memory: {
                     recall: async ({ characterId, query = "", excludeSessionId, shortTermLimit = 20 }) => {
