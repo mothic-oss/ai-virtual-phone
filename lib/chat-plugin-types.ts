@@ -17,6 +17,7 @@
 
 import type { ChatMessage, ChatSession, ChatContact } from "./chat-storage";
 import type { Character } from "./character-types";
+import type { WorldBookConfig } from "./settings-types";
 
 /** 反注册函数：撤销对应的注册动作 */
 export type Disposable = () => void;
@@ -251,6 +252,11 @@ export type ChatPluginContext = {
         characters: {
             list(): Character[];
             get(id: string): Character | null;
+        };
+        /** 只读世界书列表；插件可让用户按会话选择后自行注入裸 AI 调用。 */
+        worldBooks: {
+            list(): WorldBookConfig[];
+            get(id: string): WorldBookConfig | null;
         };
         /**
          * 读取小手机现有记忆库中与当前话题相关的内容。
