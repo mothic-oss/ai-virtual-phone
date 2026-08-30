@@ -971,6 +971,35 @@
 .phone-workspace.app-open {
   margin-top: 0;
   flex: 1 1 auto;
+  transform-origin:
+    var(--app-launch-origin-x, 50%)
+    var(--app-launch-origin-y, 50%);
+  animation: phone-app-launch 320ms cubic-bezier(0.2, 0.82, 0.2, 1) both;
+  will-change: transform, opacity, border-radius;
+}
+
+@keyframes phone-app-launch {
+  0% {
+    opacity: 0.68;
+    transform: scale(0.92);
+    border-radius: 24px;
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1.006);
+    border-radius: 5px;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-workspace.app-open {
+    animation: none;
+  }
 }
 
 .phone-workspace.app-open .phone-app-pane {
