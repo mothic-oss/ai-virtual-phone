@@ -1071,6 +1071,7 @@ export function DesktopShell({ initialThemeProfile, initialThemeAssets }: Deskto
   const [customAppUpdateBusy, setCustomAppUpdateBusy] = useState(false);
   const customAppUpdateCheckingRef = useRef<Set<string>>(new Set());
   const activeAppRef = useRef<DesktopIconId | null>(null);
+
   const [customAppBadges, setCustomAppBadges] = useState<Record<string, number>>({});
   const [customAppBackgroundRuns, setCustomAppBackgroundRuns] = useState<CustomAppBackgroundEventRun[]>([]);
   const [customAppBackgroundToolRuns, setCustomAppBackgroundToolRuns] = useState<CustomAppBackgroundToolRun[]>([]);
@@ -1202,6 +1203,12 @@ export function DesktopShell({ initialThemeProfile, initialThemeAssets }: Deskto
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const dockElRef = useRef<HTMLElement | null>(null);
   const gridRefs = useRef<Record<string, HTMLElement | null>>({ page1: null, page2: null });
+
+  useEffect(() => {
+    if (activeApp) return;
+    workspaceRef.current?.style.removeProperty("--app-launch-origin-x");
+    workspaceRef.current?.style.removeProperty("--app-launch-origin-y");
+  }, [activeApp]);
 
   // ── FLIP：编辑/拖拽中，图标与组件"让位"时平滑滑动到新格（grid 行列本身不可过渡）──
   // 坐标取相对所在 icon-grid 的局部值，整页横滑平移不会误触发动画。
@@ -2317,8 +2324,21 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     checkCustomAppUpdateInBackground(app, launchContext);
   }
 
-  function openApp(iconId: DesktopIconId): void {
+  function setAppLaunchOrigin(source?: HTMLElement | null): void {
+    const workspace = workspaceRef.current;
+    if (!workspace || !source) return;
+    const workspaceRect = workspace.getBoundingClientRect();
+    const iconRect = (source.querySelector(".icon-glyph-box") as HTMLElement | null)?.getBoundingClientRect()
+      ?? source.getBoundingClientRect();
+    const x = Math.max(0, Math.min(workspaceRect.width, iconRect.left + iconRect.width / 2 - workspaceRect.left));
+    const y = Math.max(0, Math.min(workspaceRect.height, iconRect.top + iconRect.height / 2 - workspaceRect.top));
+    workspace.style.setProperty("--app-launch-origin-x", `${x}px`);
+    workspace.style.setProperty("--app-launch-origin-y", `${y}px`);
+  }
+
+  function openApp(iconId: DesktopIconId, source?: HTMLElement | null): void {
     if (isFolderIconId(iconId)) return; // 文件夹 tile 由点击处打开面板，不走这里
+    setAppLaunchOrigin(source);
     if (customAppIdFromIconId(iconId)) {
       openCustomAppWithBackgroundUpdateCheck(iconId);
       return;
@@ -4631,7 +4651,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                                   data-flip-id={`icon:${iconId}`}
                                   className={itemClass}
                                   style={{ gridRow: pos.row, gridColumn: pos.col }}
-                                  onClick={() => { if (!editMode) openApp(iconId); }}
+                                  onClick={(event) => { if (!editMode) openApp(iconId, event.currentTarget); }}
                                   onPointerDown={(e) => handleItemPointerDown(e, "icon", iconId, pageKey)}
                                 >
                                   <span
@@ -4770,7 +4790,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                         type="button"
                         data-flip-id={`icon:${iconId}`}
                         className={isDragging ? "dock-item dragging" : "dock-item"}
-                        onClick={() => { if (!editMode) openApp(iconId); }}
+                        onClick={(event) => { if (!editMode) openApp(iconId, event.currentTarget); }}
                         onPointerDown={(e) => handleItemPointerDown(e, "icon", iconId, DOCK_PAGE_KEY)}
                       >
                         <span
@@ -4976,7 +4996,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                                   key={memberId}
                                   type="button"
                                   className="folder-app"
-                                  onClick={() => { setOpenFolderId(null); openApp(memberId); }}
+                                  onClick={(event) => { setOpenFolderId(null); openApp(memberId, event.currentTarget); }}
                                   onPointerDown={(e) => handleFolderIconPointerDown(e, memberId)}
                                   onPointerMove={handleFolderIconPointerMove}
                                   onPointerUp={cancelFolderIconPress}
