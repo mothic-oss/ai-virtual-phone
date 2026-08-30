@@ -974,7 +974,7 @@
   transform-origin:
     var(--app-launch-origin-x, 50%)
     var(--app-launch-origin-y, 50%);
-  animation: phone-app-launch 640ms cubic-bezier(0.2, 0.82, 0.2, 1) both;
+  animation: phone-app-launch 640ms linear both;
   will-change: transform, opacity, border-radius;
 }
 
@@ -983,11 +983,13 @@
     opacity: 0.68;
     transform: scale(0.92);
     border-radius: 24px;
+    animation-timing-function: cubic-bezier(0.22, 0.55, 0.3, 1);
   }
-  76% {
+  86% {
     opacity: 1;
     transform: scale(1.006);
     border-radius: 5px;
+    animation-timing-function: cubic-bezier(0.2, 0.82, 0.2, 1);
   }
   100% {
     opacity: 1;
