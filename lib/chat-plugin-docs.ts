@@ -128,7 +128,7 @@ opts.timeoutMs 覆盖该 transform 的超时（默认 8000ms）。在 transform 
 
 ## ctx.ai —— LLM 裸通道
 
-\`await ctx.ai.chat({ prompt, system?, temperature?, maxTokens? })\` → 回复文本。
+\`await ctx.ai.chat({ prompt, system?, temperature?, maxTokens? })\` → 回复文本。省略 temperature 时跟随「设置 → 预设」中当前全局绑定预设的温度。
 直连用户配置的模型 API：不挂角色、不进聊天记录、不写记忆。
 
 ## ctx.prompts —— 持久提示词片段
