@@ -17,6 +17,7 @@
 
 import type { ChatMessage, ChatSession, ChatContact } from "./chat-storage";
 import type { Character } from "./character-types";
+import type { WorldBookConfig } from "./settings-types";
 
 /** 反注册函数：撤销对应的注册动作 */
 export type Disposable = () => void;
@@ -252,6 +253,36 @@ export type ChatPluginContext = {
             list(): Character[];
             get(id: string): Character | null;
         };
+        /** 只读世界书列表；插件可让用户按会话选择后自行注入裸 AI 调用。 */
+        worldBooks: {
+            list(): WorldBookConfig[];
+            get(id: string): WorldBookConfig | null;
+        };
+        /**
+         * 读取小手机现有记忆库中与当前话题相关的内容。
+         * 返回的均为已按用户记忆设置、token 预算和来源开关筛选后的纯文本。
+         */
+        memory: {
+            recall(input: {
+                characterId: string;
+                query?: string;
+                /** 排除当前会话，避免与插件自己读取的近期消息重复。 */
+                excludeSessionId?: string;
+                shortTermLimit?: number;
+            }): Promise<{
+                core: string[];
+                longTerm: string[];
+                shortTerm: string[];
+            }>;
+            /**
+             * 通知现有记忆流水线：这些已落库的聊天消息应计入自动总结计数。
+             * 消息正文仍由聊天存储提供，这里不会重复写一份事件。
+             */
+            recordActivity(input: {
+                characterIds: string[];
+                eventCount?: number;
+            }): Promise<void>;
+        };
         /** 跨插件共享变量池（好感度、心情这类"世界状态"），按作用域隔离 */
         variables: {
             get(name: string, scope?: ChatPluginVarScope, targetId?: string): unknown;
@@ -269,6 +300,7 @@ export type ChatPluginContext = {
         chat(opts: {
             prompt: string;
             system?: string;
+            /** 省略时跟随当前全局绑定预设的温度 */
             temperature?: number;
             maxTokens?: number;
         }): Promise<string>;

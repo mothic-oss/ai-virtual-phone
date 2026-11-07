@@ -13,8 +13,12 @@ import { kvGet, kvSet, kvRemove, hydrateKvDb } from "./kv-db";
 import { hydrateChatStorage, loadChatMessages, loadChatSessions, loadChatContacts, pushChatMessage, updateChatMessage, type ChatMessage } from "./chat-storage";
 import { isMediaStoreRef, loadMediaBlob } from "./media-cache-storage";
 import { loadCharacters } from "./character-storage";
-import { loadApiConfigs, loadBindingConfig } from "./settings-storage";
-import { simpleLLMCall } from "./api-helpers";
+import { loadApiConfigs, loadBindingConfig, loadPresets, loadWorldBooks } from "./settings-storage";
+import { simpleLLMCallPreferStream } from "./simple-llm-stream";
+import { incrementEventCounter, loadMemoryConfig } from "./memory-storage";
+import { retrieveCoreMemoriesForPrompt, retrieveMemoriesForPrompt } from "./memory-service";
+import { maybeRunSummarization } from "./memory-summarizer";
+import { filterTimelineByAllowedSources, loadNativeTimeline } from "./short-term-assembler";
 import { getChatPluginHookBus } from "./chat-plugin-hooks";
 import { loadChatPluginModule } from "./chat-plugin-loader";
 import {
@@ -356,6 +360,49 @@ class ChatPluginRuntime {
                     list: () => loadCharacters(),
                     get: (id) => loadCharacters().find(c => c.id === id) ?? null,
                 },
+                worldBooks: {
+                    list: () => loadWorldBooks(),
+                    get: (id) => loadWorldBooks().find(book => book.id === id) ?? null,
+                },
+                memory: {
+                    recall: async ({ characterId, query = "", excludeSessionId, shortTermLimit = 20 }) => {
+                        const config = loadMemoryConfig();
+                        const [coreEntries, longTermEntries] = await Promise.all([
+                            retrieveCoreMemoriesForPrompt(characterId, config),
+                            retrieveMemoriesForPrompt(characterId, query.trim() || "近期关系与重要事件", config),
+                        ]);
+                        const parsedLimit = Number(shortTermLimit);
+                        const limit = Number.isFinite(parsedLimit)
+                            ? Math.max(0, Math.min(50, Math.floor(parsedLimit)))
+                            : 20;
+                        const timeline = filterTimelineByAllowedSources(
+                            loadNativeTimeline(characterId),
+                            config.shortTermAllowedSources,
+                        ).filter(entry => !excludeSessionId
+                            || (entry.sessionId !== excludeSessionId && entry.groupSessionId !== excludeSessionId));
+
+                        return {
+                            core: coreEntries.map(entry => entry.content),
+                            longTerm: longTermEntries.map(entry => entry.content),
+                            shortTerm: limit > 0 ? timeline.slice(-limit).map(entry => entry.content) : [],
+                        };
+                    },
+                    recordActivity: async ({ characterIds, eventCount = 1 }) => {
+                        const parsedCount = Number(eventCount);
+                        const count = Number.isFinite(parsedCount)
+                            ? Math.max(0, Math.min(20, Math.floor(parsedCount)))
+                            : 1;
+                        if (count <= 0) return;
+                        const characters = loadCharacters();
+                        const uniqueIds = [...new Set(characterIds.map(id => id.trim()).filter(Boolean))];
+                        await Promise.all(uniqueIds.map(async characterId => {
+                            const character = characters.find(item => item.id === characterId);
+                            if (!character) return;
+                            for (let i = 0; i < count; i++) incrementEventCounter(characterId);
+                            await maybeRunSummarization(characterId, character.name);
+                        }));
+                    },
+                },
                 variables: {
                     get: (name, scope = "global", targetId) => getChatPluginVar(name, scope, targetId),
                     set: (name, value, scope = "global", targetId) => setChatPluginVar(name, value, scope, targetId),
@@ -374,13 +421,20 @@ class ChatPluginRuntime {
             ai: {
                 chat: async ({ prompt, system, temperature, maxTokens }) => {
                     const configs = loadApiConfigs();
-                    const defaultId = loadBindingConfig().globalDefaults.apiConfigId;
+                    const binding = loadBindingConfig();
+                    const defaultId = binding.globalDefaults.apiConfigId;
                     const config = (defaultId ? configs.find(c => c.id === defaultId) : undefined) ?? configs[0];
                     if (!config) throw new Error("尚未配置任何 LLM API，请先到 设置 → API 设置 添加");
+                    const presets = loadPresets();
+                    const presetId = binding.globalDefaults.presetId;
+                    const preset = (presetId ? presets.find(item => item.id === presetId) : undefined)
+                        ?? presets.find(item => item.builtIn)
+                        ?? presets[0];
+                    const effectiveTemperature = temperature ?? preset?.temperature ?? 0.8;
                     const messages: { role: string; content: string }[] = [];
                     if (system?.trim()) messages.push({ role: "system", content: system });
                     messages.push({ role: "user", content: prompt });
-                    const result = await simpleLLMCall(config, messages, { temperature, max_tokens: maxTokens });
+                    const result = await simpleLLMCallPreferStream(config, messages, { temperature: effectiveTemperature, max_tokens: maxTokens });
                     if (result.error) throw new Error(result.error);
                     return result.content ?? "";
                 },
